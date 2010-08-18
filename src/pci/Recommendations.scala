@@ -57,6 +57,15 @@ object Recommendations {
     "Michael Phillips" -> Map("Lady in the Water" -> 2.5, "Snakes on a Plane" -> 3.0, "Superman Returns" -> 3.5,
                               "The Night Listener" -> 4.0))
 
+  import Algorithms._
+  type Similarity = {def calc(prefs:Map[String, Map[String,Double]], person1:String, person2:String):Double}
+  def topMatcher(prefs:Map[String, Map[String, Double]], person:String, n:Int=5, 
+                  similarity:(Map[String, Map[String,Double]],String, String)=>Double = simPearson) = {
+    val scores:Iterable[(Double,String)] = for {other <- prefs
+                      if other._1 != person} yield (similarity(prefs, person, other._1), other._1)
+//    scores.toList.sortWith({(t1,t2)=>t1._1 > t2._1}).take(n)
+    scores.toList.sortWith(_._1 > _._1).take(n)
+  }
   /**
    * @param args the command line arguments
    */
@@ -64,6 +73,7 @@ object Recommendations {
     import Algorithms._
     println(simDistance(critics, "Lisa Rose", "Gene Seymour"))
     println(simPearson(critics, "Lisa Rose", "Gene Seymour"))
+    println(topMatcher(critics, "Toby", n=3))
   }
 
 }
