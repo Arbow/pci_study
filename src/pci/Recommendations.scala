@@ -69,6 +69,48 @@ object Algorithms {
     val ranking:Iterable[(Double,String)] = (for {(item,total) <- totals} yield (total/simSums(item), item))
     ranking.toList.sortWith(_._1 > _._1)
   }
+  
+  def transformPrefs(prefs:Map[String, Map[String, Double]]) = {
+    import scala.collection.mutable.HashMap
+    val result = HashMap[String, HashMap[String,Double]]()
+    for {person <- prefs.keySet; item <- prefs(person)} {
+      if (!result.contains(item._1)) result(item._1) = HashMap[String,Double]()
+      result(item._1)(person) = prefs(person)(item._1)
+    }
+    result
+  }
+
+  def calculateSimilarItems(prefs:Map[String, Map[String, Double]], n:Int=10) = {
+    val result = HashMap[String, List[(Double,String)]]()
+    val itemPrefs = transformPrefs(prefs)
+    itemPrefs.keys.foreach { item =>
+      val scores = topMatcher(itemPrefs, item, n, simDistance)
+      result(item) = scores
+    }
+    result
+  }
+
+  def getRecommendedItems(prefs:Map[String, Map[String, Double]], itemMatch:Map[String,List[(Double, String)]], user:String) = {
+    val userRatings = prefs(user)
+    val scores = HashMap[String,Double]()
+    val totalSim = new HashMap[String,Double]()
+
+    userRatings.foreach { tuple1 =>
+      val (item,rating) = tuple1
+      itemMatch(item).filterNot(item=>userRatings.contains(item._2)).foreach { tuple2 =>
+        val (similarity, item2) = tuple2
+
+        if (!scores.contains(item2)) scores(item2) = 0
+        scores(item2) += similarity * rating
+
+        if (!totalSim.contains(item2)) totalSim(item2) = 0
+        totalSim(item2) += similarity
+      }
+    }
+
+    val rankings = (for {(item,score) <- scores} yield (score/totalSim(item), item) ).toList
+    rankings.sortWith(_._1 > _._1)
+  }
 }
 
 object Recommendations {
@@ -88,16 +130,6 @@ object Recommendations {
     "Michael Phillips" -> Map("Lady in the Water" -> 2.5, "Snakes on a Plane" -> 3.0, "Superman Returns" -> 3.5,
                               "The Night Listener" -> 4.0))
 
-  def transformPrefs(prefs:Map[String, Map[String, Double]]) = {
-    import scala.collection.mutable.HashMap
-    val result = HashMap[String, HashMap[String,Double]]()
-    for {person <- prefs.keySet; item <- prefs(person)} {
-      if (!result.contains(item._1)) result(item._1) = HashMap[String,Double]()
-      result(item._1)(person) = prefs(person)(item._1)
-    }
-    result
-  }
-
   def main(args: Array[String]): Unit = {
     import Algorithms._
     println(simDistance(critics, "Lisa Rose", "Gene Seymour"))
@@ -109,6 +141,10 @@ object Recommendations {
     println("------------")
     println(topMatcher(transformPrefs(critics), "Superman Returns"))
     println(getRecommendations(transformPrefs(critics), "Just My Luck"))
+    println("------------")
+    val matches = calculateSimilarItems(critics)
+    println("matchers = " + matches)
+    println(getRecommendedItems(critics, matches, "Toby"))
   }
 
 }
